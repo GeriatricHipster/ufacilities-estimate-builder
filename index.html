@@ -260,6 +260,34 @@ body {
   .summary,.costs tr { break-inside:avoid; }
   .paper { break-after:avoid; }
 }
+
+/* Monthly fees: AUX/O&M is internal and omitted from client PDFs. */
+.monthly-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.monthly-table th{font-size:10px;text-align:left;padding:5px 3px}
+.monthly-table td{padding:3px}
+.monthly-table select,.monthly-table input{width:100%;min-width:0;border:1px solid var(--line);padding:6px 4px;background:#f5f9fc;font:inherit;font-size:11px}
+.monthly-table .monthly-price,.monthly-table .monthly-line{display:block;text-align:right;padding:7px 4px;font-size:11px;white-space:nowrap}
+ .monthly-table .monthly-line{background:#e7e7e7}
+.monthly-table .m-custom-price{display:none;text-align:right}
+.monthly-table tr.custom-rate .m-custom-price{display:block}
+.monthly-table tr.custom-rate .monthly-price{display:none}
+.monthly-table .custom-toggle{display:flex;align-items:center;gap:4px;font-size:10px;white-space:nowrap}
+.monthly-table .custom-toggle input{width:auto}
+.monthly-table .custom-device-name{display:none}
+.monthly-table tr.custom-device .custom-device-name{display:block;margin-top:4px}
+.monthly-total{margin:12px 0 0 auto;width:48%;display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:3px solid var(--red);padding-top:8px;font-weight:800}
+.monthly-total output{min-width:125px;text-align:right;padding:7px 9px;background:#fff0f0;color:#990000}
+.monthly-hint{font-size:10px;color:#555;margin:5px 0}
+@media print{
+  .monthly-table colgroup{display:none}
+  .monthly-table{table-layout:auto}
+  .monthly-billing,.monthly-remove,.monthly-hint,.custom-toggle{display:none!important}
+  .monthly-table select,.monthly-table input{border:0;background:transparent;appearance:none;padding:4px 2px;color:black}
+  .monthly-table .monthly-line{background:transparent}
+  .monthly-table tr{break-inside:avoid}
+  .monthly-total{break-inside:avoid}
+  #monthlySection.is-empty{display:none!important}
+}
 </style>
 </head>
 
@@ -333,14 +361,14 @@ body {
       <input id="coordinator">
     </div>
     <div class="field" style="grid-column: span 2;">
-      <label>Coordinator Phone/Email</label>
-      <input
-        id="coordinatorContact"
-        type="text"
-        autocomplete="off"
-        style="width:100%;"
-      >
-    </div>
+  <label>Coordinator Phone/Email</label>
+  <input
+    id="coordinatorContact"
+    type="text"
+    autocomplete="off"
+    style="width:100%;"
+  >
+</div>
   </div>
 
   <div class="field">
@@ -376,6 +404,21 @@ body {
   </table>
 
   <button class="add" id="addBottom">+ Add Row</button>
+
+
+  <section id="monthlySection">
+    <div class="section">MONTHLY DEVICE FEES</div>
+    <p class="monthly-hint">Select a system, device and billing type. The monthly rate is populated automatically, or select Custom Price to override it. AUX/O&amp;M is hidden on the client PDF. Monthly charges are separate from project costs.</p>
+    <table class="monthly-table">
+      <colgroup>
+        <col style="width:16%"><col style="width:29%"><col class="monthly-billing" style="width:12%"><col style="width:14%"><col style="width:10%"><col style="width:15%"><col class="monthly-remove" style="width:4%">
+      </colgroup>
+      <thead><tr><th>System</th><th>Device</th><th class="monthly-billing">AUX / O&amp;M</th><th>Monthly Price</th><th>Qty</th><th>Line Total</th><th class="monthly-remove"></th></tr></thead>
+      <tbody id="monthlyRows"></tbody>
+    </table>
+    <button class="add" type="button" id="addMonthly">+ Add Monthly Device</button>
+    <div class="monthly-total"><span>Total for All Devices / Month</span><output id="monthlyTotal">$0.00</output></div>
+  </section>
 
   <div id="coInputs" class="co-inputs" hidden>
     <div class="section">ORIGINAL ESTIMATE INFORMATION</div>
@@ -605,6 +648,101 @@ body {
     $('total').textContent = money(total);
   }
 
+
+  const MONTHLY_PRICES = {
+    CCure: {"Door With Reader": {"O&M": 13.13, "AUX": 13.91}, "Controlled Door": {"O&M": 13.86, "AUX": 14.64}, "Panic button": {"O&M": 5.58, "AUX": 7.96}, "Lock down button": {"O&M": 12.22, "AUX": 12.14}, "Door release button": {"O&M": 5.5, "AUX": 8.53}, "Intrusion Zone": {"O&M": 17.42, "AUX": 18.61}, "Freezer/Notification": {"O&M": 6.49, "AUX": 7.68}, "Monitored Door": {"O&M": 5.0, "AUX": 7.77}, "Reader Only (Elevator)": {"O&M": 6.55, "AUX": 7.74}, "Biometric Reader": {"O&M": 44.11, "AUX": 45.01}, "Alcatraz Biometric Reader": {"O&M": 92.55, "AUX": 93.46}, "Covert Device": {"O&M": null, "AUX": 62.29}, "Door Monitor": {"O&M": null, "AUX": 26.95}},
+    Camera: {"10MP Dual Head": {"AUX": 45.85, "O&M": 44.67}, "12MP Four Head": {"AUX": 54.23, "O&M": 53.04}, "15MP Tri-Head": {"AUX": 54.23, "O&M": 57.99}, "16MP Bullet": {"AUX": 61.63, "O&M": 100.64}, "20MP Four Head": {"AUX": 72.22, "O&M": 71.03}, "2MP": {"AUX": 25.08, "O&M": 23.89}, "2MP A/Outside Dome": {"AUX": 26.27, "O&M": 25.08}, "2MP Bullet": {"AUX": 26.19, "O&M": 25.01}, "2MP License Plate": {"AUX": 32.72, "O&M": 31.53}, "2MP PTZ Indoor": {"AUX": 27.71, "O&M": 26.53}, "2MP PTZ Outdoor": {"AUX": 53.13, "O&M": 51.95}, "30MP Bullet": {"AUX": 91.72, "O&M": null}, "3MP": {"AUX": 27.08, "O&M": 25.89}, "3MP A/Outside Dome": {"AUX": 28.27, "O&M": 27.08}, "3MP Bullet": {"AUX": 28.19, "O&M": 27.01}, "4MP": {"AUX": 28.85, "O&M": 27.67}, "4MP A/Outside Dome": {"AUX": 35.29, "O&M": 34.11}, "4MP Bullet": {"AUX": 32.08, "O&M": 30.9}, "5MP": {"AUX": 30.85, "O&M": 29.67}, "5MP A/Outside Dome": {"AUX": 37.29, "O&M": 36.11}, "5MP Bullet": {"AUX": 34.08, "O&M": 32.9}, "6MP": {"AUX": 34.77, "O&M": 33.58}, "6MP A/Outside Dome": {"AUX": 36.26, "O&M": 35.07}, "6MP Bullet": {"AUX": 35.26, "O&M": 34.08}, "8MP": {"AUX": 40.25, "O&M": 39.07}, "8MP A": {"AUX": 46.13, "O&M": 44.94}, "8MP Bullet": {"AUX": 41.35, "O&M": 40.17}, "Fisheye": {"AUX": 22.17, "O&M": 20.98}, "Fisheye 12MP": {"AUX": 22.17, "O&M": 20.98}, "Fisheye 6MP": {"AUX": 55.4, "O&M": 37.76}, "Fisheye 8MP": {"AUX": 22.17, "O&M": 20.98}, "Four Head Plus PTZ": {"AUX": 97.82, "O&M": null}}
+  };
+  const monthlyMoney = amount => money(amount);
+  function monthlyRow(data = {}) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><select class="m-system" aria-label="Monthly fee system"><option value="">Select</option><option>CCure</option><option>Camera</option></select></td>
+      <td><select class="m-device" aria-label="Monthly device"><option value="">Select device</option></select><input class="custom-device-name" aria-label="Custom device description" placeholder="Enter custom device" type="text"></td>
+      <td class="monthly-billing"><select class="m-billing" aria-label="Billing type"><option value="">Select</option><option>AUX</option><option>O&amp;M</option></select></td>
+      <td><span class="monthly-price">—</span><input class="m-custom-price" type="number" min="0" step="0.01" placeholder="0.00" aria-label="Custom monthly price"><label class="custom-toggle monthly-billing"><input class="m-use-custom" type="checkbox"> Custom Price</label></td>
+      <td><input class="m-qty" type="number" min="0" step="1" aria-label="Monthly device quantity"></td>
+      <td><span class="monthly-line">$0.00</span></td>
+      <td class="monthly-remove"><button class="remove" type="button" aria-label="Remove monthly device">×</button></td>`;
+    const system = tr.querySelector('.m-system');
+    const device = tr.querySelector('.m-device');
+    const billing = tr.querySelector('.m-billing');
+    const useCustom = tr.querySelector('.m-use-custom');
+    const customPrice = tr.querySelector('.m-custom-price');
+    const customName = tr.querySelector('.custom-device-name');
+    system.value = data.system || '';
+    function populateDevices(preferred = '') {
+      device.replaceChildren(new Option('Select device', ''));
+      for (const name of Object.keys(MONTHLY_PRICES[system.value] || {})) device.add(new Option(name,name));
+      device.add(new Option('Custom Device', '__custom__'));
+      device.value = preferred === '__custom__' || preferred in (MONTHLY_PRICES[system.value] || {}) ? preferred : '';
+      tr.classList.toggle('custom-device', device.value === '__custom__');
+    }
+    populateDevices(data.device || '');
+    billing.value = data.billing || '';
+    useCustom.checked = Boolean(data.useCustom) || device.value === '__custom__';
+    customPrice.value = data.customPrice ?? '';
+    customName.value = data.customDeviceName || '';
+    tr.querySelector('.m-qty').value = data.qty ?? '';
+    system.addEventListener('change', () => { populateDevices(); calculateMonthly(); });
+    device.addEventListener('change', () => {
+      tr.classList.toggle('custom-device', device.value === '__custom__');
+      if (device.value === '__custom__') useCustom.checked = true;
+      calculateMonthly();
+    });
+    billing.addEventListener('change', calculateMonthly);
+    useCustom.addEventListener('change', calculateMonthly);
+    customPrice.addEventListener('input', calculateMonthly);
+    customName.addEventListener('input', calculateMonthly);
+    tr.querySelector('.m-qty').addEventListener('input', calculateMonthly);
+    tr.querySelector('.remove').onclick = () => { tr.remove(); calculateMonthly(); };
+    $('monthlyRows').append(tr);
+    calculateMonthly();
+  }
+  function calculateMonthly() {
+    let total = 0, hasData = false;
+    for (const tr of document.querySelectorAll('#monthlyRows tr')) {
+      const system = tr.querySelector('.m-system').value;
+      const device = tr.querySelector('.m-device').value;
+      const billing = tr.querySelector('.m-billing').value;
+      const qtyText = tr.querySelector('.m-qty').value;
+      const qty = Number(qtyText);
+      const useCustom = tr.querySelector('.m-use-custom').checked || device === '__custom__';
+      const customText = tr.querySelector('.m-custom-price').value;
+      const autoPrice = MONTHLY_PRICES[system]?.[device]?.[billing];
+      const price = useCustom ? Number(customText) : autoPrice;
+      const valid = Boolean(system && device && billing) && (device !== '__custom__' || Boolean(tr.querySelector('.custom-device-name').value.trim())) &&
+        (useCustom ? customText.trim() !== '' && Number.isFinite(price) && price >= 0 : typeof price === 'number' && Number.isFinite(price));
+      const validQty = qtyText !== '' && Number.isInteger(qty) && qty >= 0;
+      const line = valid && validQty ? cents(price * qty) : 0;
+      if (valid && validQty) total += line;
+      if (system || device || billing || qtyText || customText) hasData = true;
+      tr.classList.toggle('custom-rate', useCustom);
+      tr.classList.toggle('custom-device', device === '__custom__');
+      tr.querySelector('.monthly-price').textContent = valid ? monthlyMoney(price) : (system && device && billing ? 'Unavailable' : '—');
+      tr.querySelector('.monthly-line').textContent = valid && validQty ? monthlyMoney(line) : '—';
+      tr.classList.toggle('empty', !(system || device || billing || qtyText || customText));
+    }
+    $('monthlyTotal').textContent = monthlyMoney(cents(total));
+    $('monthlySection').classList.toggle('is-empty', !hasData);
+  }
+  function getMonthlyData() {
+    return [...document.querySelectorAll('#monthlyRows tr')].map(tr => ({
+      system:tr.querySelector('.m-system').value,
+      device:tr.querySelector('.m-device').value,
+      billing:tr.querySelector('.m-billing').value,
+      qty:tr.querySelector('.m-qty').value,
+      useCustom:tr.querySelector('.m-use-custom').checked,
+      customPrice:tr.querySelector('.m-custom-price').value,
+      customDeviceName:tr.querySelector('.custom-device-name').value
+    }));
+  }
+  function setMonthlyData(rows) {
+    $('monthlyRows').replaceChildren();
+    (Array.isArray(rows) && rows.length ? rows : [{}]).forEach(monthlyRow);
+    calculateMonthly();
+  }
+  $('addMonthly').onclick = () => monthlyRow();
+
   function getData() {
     const fields = [
       'wo',
@@ -620,7 +758,8 @@ body {
     ];
 
     return {
-      version:1,
+      version:2,
+      monthlyRows:getMonthlyData(),
       formType:$('formType').value,
       fields:Object.fromEntries(
         fields.map(k => [k, $(k).value])
@@ -684,6 +823,7 @@ body {
       $(k).value = d.fields?.[k] || '';
     }
 
+    setMonthlyData(d.monthlyRows);
     $('rows').innerHTML = '';
 
     const initialRows = d.rows?.length
@@ -764,6 +904,7 @@ body {
         fields:{
           date:new Date().toISOString().slice(0,10)
         },
+        monthlyRows:[{}],
         rows:Array.from({length:8}, () => ({}))
       });
     }
@@ -774,6 +915,7 @@ body {
     fields:{
       date:new Date().toISOString().slice(0,10)
     },
+    monthlyRows:[{}],
     rows:Array.from({length:8}, () => ({}))
   });
 
